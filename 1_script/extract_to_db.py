@@ -27,15 +27,15 @@ class CovidDataExtractor:
         return self.db.select(query)
     
     def check_files(self):        
-        ingested_files = (self.get_files_names()) # DF com id,file_name
+        self.ingested_files = (self.get_files_names()) # DF com id,file_name
 
         file_names = [file for file in os.listdir(self.data_dir) if os.path.isfile(os.path.join(self.data_dir, file))]        
 
-        missing_files = [file for file in file_names if file not in ingested_files['file_name'].values]
+        missing_files = [file for file in file_names if file not in self.ingested_files['file_name'].values]
 
         # Encontrar o arquivo com o maior id no DataFrame
-        if not ingested_files.empty:
-            max_id_row = ingested_files.loc[ingested_files['id'].idxmax()]  # Encontra a linha com o maior id
+        if not self.ingested_files.empty:
+            max_id_row = self.ingested_files.loc[self.ingested_files['id'].idxmax()]  # Encontra a linha com o maior id
             file_with_max_id = max_id_row['file_name']  # Nome do arquivo com maior id
             # Adiciona o arquivo com o maior id à lista de arquivos ausentes, se não estiver nela
             if file_with_max_id not in missing_files:
@@ -45,10 +45,14 @@ class CovidDataExtractor:
 
         return missing_files        
 
-    def process_file_name(self,file_name):
-        files = self.get_files_names()
-                
-        self.db.insert(table_ingested_files,['file_name'],[file_name])        
+    def process_file_name(self,file_name):        
+        files = self.get_files_names()                        
+
+        if file_name not in self.ingested_files['file_name'].values:
+            self.db.insert(table_ingested_files,['file_name'],[file_name])
+            generated_id = self.db.cursor.lastrowid
+            return generated_id
+            
 
     def process_file(self, file_path, file_name):
         """
@@ -77,13 +81,12 @@ class CovidDataExtractor:
 
         if not valid_files:
             print("No files to process")
-        else:        
+        else:
             for file in valid_files:
                 file_path = os.path.join(self.data_dir, file)
                 file_name = os.path.basename(file_path)
                 if os.path.isfile(file_path):
                     self.process_file(file_path, file_name)
-
     
     def run(self):
         self.extract_and_insert()

@@ -9,8 +9,8 @@ def run():
         print("The database does not exist. Creating now...")
         db_creator.create_database_and_tables()
 
-    # file_extractor = FileExtractor()
-    # file_extractor.run()
+    file_extractor = FileExtractor()
+    file_extractor.run()
     
     data_extractor = CovidDataExtractor()
     data_extractor.run()
