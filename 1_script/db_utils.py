@@ -1,5 +1,7 @@
 import os
 import sqlite3
+import pandas as pd
+
 from constants import fodler_database,db_name
 
 class CovidBrasilDB:
@@ -33,11 +35,11 @@ class CovidBrasilDB:
     
     def select(self, query, params=None):
         """
-        Executes a SELECT query on the database.
+        Executes a SELECT query on the database and returns the results as a pandas DataFrame.
         
         :param query: The SQL query to execute.
         :param params: Parameters for the query, if any, as a tuple or list.
-        :return: List of tuples containing the query results.
+        :return: A pandas DataFrame containing the query results.
         """
         if not self.connection:
             raise ConnectionError("Database connection is not open.")
@@ -47,7 +49,12 @@ class CovidBrasilDB:
         
         self.cursor.execute(query, params)
         results = self.cursor.fetchall()
-        return results
+                
+        columns = [desc[0] for desc in self.cursor.description]
+
+        df = pd.DataFrame(results, columns=columns)
+        
+        return df
 
     def insert(self, table, columns, values):
         """
