@@ -17,6 +17,21 @@ class CovidDataExtractor:
         self.db = CovidBrasilDB()
         self.db.open_connection()
     
+    def delete_all_files(self):
+        """
+        Deletes all files from the specified directory.
+
+        This function iterates through all files in the directory specified by `data_dir` 
+        and removes them one by one.
+
+        Returns:
+            None
+        """        
+        for file in os.listdir(self.data_dir):            
+            os.remove(os.path.join(self.data_dir, file))
+            print(f"File {file} deleted!")
+
+
     def get_files_names(self):
         """
         Retorna uma lista de tuplas com (id, nome) da tabela 'pessoas'.
@@ -26,33 +41,57 @@ class CovidDataExtractor:
         query = f"SELECT id, file_name FROM {table_ingested_files}"
         return self.db.select(query)
     
-    def check_files(self):        
-        self.ingested_files = (self.get_files_names()) # DF com id,file_name
+    def check_files(self):
+        """
+        Checks which files in the data directory have not been ingested yet.
+
+        The function compares the files present in the `data_dir` directory with the already ingested files  
+        (stored in the `ingested_files` DataFrame). It returns a list of files that have not been ingested.  
+        Additionally, it ensures that the file with the highest ID is included in the list if it is not already there.
+
+        Returns:
+            list: List of file names that have not been ingested.
+        """
+        self.ingested_files = self.get_files_names()
 
         file_names = [file for file in os.listdir(self.data_dir) if os.path.isfile(os.path.join(self.data_dir, file))]        
 
         missing_files = [file for file in file_names if file not in self.ingested_files['file_name'].values]
-
-        # Encontrar o arquivo com o maior id no DataFrame
+        
         if not self.ingested_files.empty:
-            max_id_row = self.ingested_files.loc[self.ingested_files['id'].idxmax()]  # Encontra a linha com o maior id
-            file_with_max_id = max_id_row['file_name']  # Nome do arquivo com maior id
-            # Adiciona o arquivo com o maior id à lista de arquivos ausentes, se não estiver nela
+            max_id_row = self.ingested_files.loc[self.ingested_files['id'].idxmax()]
+            file_with_max_id = max_id_row['file_name']  
+            
             if file_with_max_id not in missing_files:
                 missing_files.append(file_with_max_id)
         else:
-            file_with_max_id = None  # Caso o DataFrame esteja vazio
+            file_with_max_id = None
 
-        return missing_files        
+        return missing_files
+     
 
-    def process_file_name(self,file_name):        
+    def process_file_name_return_id(self, file_name):
+        """
+        Processes the file name and returns its ID.
+
+        If the file has not been ingested yet, it is inserted into the 'ingested_files' table,  
+        and the newly generated ID is returned. If the file already exists, the corresponding ID is retrieved.
+
+        Args:
+            file_name (str): Name of the file to be processed.
+
+        Returns:
+            int: ID of the file in the 'ingested_files' table.
+        """
         files = self.get_files_names()                        
 
         if file_name not in self.ingested_files['file_name'].values:
-            self.db.insert(table_ingested_files,['file_name'],[file_name])
+            self.db.insert(table_ingested_files, ['file_name'], [file_name])
             generated_id = self.db.cursor.lastrowid
             return generated_id
-            
+        else:
+            id = self.ingested_files.loc[self.ingested_files['file_name'] == file_name, 'id'].iloc[0]
+            return id            
 
     def process_file(self, file_path, file_name):
         """
@@ -61,14 +100,17 @@ class CovidDataExtractor:
         """
         try:            
             print(f'Starting the file {file_name}')
-            self.process_file_name(file_name)
+            file_id = self.process_file_name_return_id(file_name)            
             df = pd.read_csv(file_path, sep=';')
             print('Adjusting the columns.')
             df.columns = df.columns.str.lower()
             df = df.rename(columns={'data': 'ref_data', 'interior/metropolitana': 'interior_metropolitana'})
+            df['file_id'] = file_id
+            print('Deleting duplicated values from the database.')
+            self.db.delete(table_name,'file_id = ?',[file_id])
             print('Inserting into the database.')
             self.db.insert_df(df, table_name)
-            print(f'Finished processing the file {file_name}!')
+            print(f'Finished processing the file {file_name}!')                        
         except Exception as e:
             print(f'Error processing the file {file_name}!')
             print(f'Error: {e}')
@@ -87,6 +129,8 @@ class CovidDataExtractor:
                 file_name = os.path.basename(file_path)
                 if os.path.isfile(file_path):
                     self.process_file(file_path, file_name)
+
+        self.delete_all_files()
     
     def run(self):
-        self.extract_and_insert()
+        self.extract_and_insert()        

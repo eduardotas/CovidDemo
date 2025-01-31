@@ -45,7 +45,8 @@ class DatabaseCreator:
             obitosNovos INT,
             Recuperadosnovos INT,
             emAcompanhamentoNovos INT,
-            interior_metropolitana INT
+            interior_metropolitana INT,
+            file_id INT
         );
         """
         
