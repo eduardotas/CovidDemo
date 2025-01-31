@@ -86,7 +86,7 @@ class CovidBrasilDB:
         if not self.connection:
             raise ConnectionError("Database connection is not open.")
         
-        query = f"DELETE FROM {table} WHERE {condition}"
+        query = f"DELETE FROM {table} WHERE {condition}"        
         self.cursor.execute(query, condition_values)
         self.connection.commit()
         print("Data removed successfully.")

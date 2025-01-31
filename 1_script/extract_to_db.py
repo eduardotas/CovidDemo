@@ -106,8 +106,8 @@ class CovidDataExtractor:
             df.columns = df.columns.str.lower()
             df = df.rename(columns={'data': 'ref_data', 'interior/metropolitana': 'interior_metropolitana'})
             df['file_id'] = file_id
-            print('Deleting duplicated values from the database.')
-            self.db.delete(table_name,'file_id = ?',[file_id])
+            print(f'Deleting duplicated values from the database file_id: {file_id}.')
+            self.db.delete(table_name,"file_id = ?",(int(file_id),))
             print('Inserting into the database.')
             self.db.insert_df(df, table_name)
             print(f'Finished processing the file {file_name}!')                        
